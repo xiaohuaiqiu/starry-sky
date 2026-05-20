@@ -509,10 +509,10 @@ function handleCanvasClick(e){
   var cx=(e.clientX-rect.left)/rect.width;
   var cy=(e.clientY-rect.top)/rect.height;
 
-  if(addMode){showInputAt(cx,cy);return}
+  if(addMode){e.stopPropagation();showInputAt(cx,cy);return}
   // Browse mode: click near star to read
   var existing=findNearest(cx,cy,isMobile?0.06:0.04);
-  if(existing){showPopup(existing,e)}
+  if(existing){e.stopPropagation();showPopup(existing,e)}
 }
 
 // ─── Scorpio constellation ───────────────────────
@@ -752,7 +752,7 @@ function init(){
 
   domClosePopup.addEventListener('click',hidePopup);
   domStarPopup.addEventListener('click',function(e){e.stopPropagation()});
-  document.addEventListener('click',function(e){if(!domStarPopup.classList.contains('show'))return;if(!domStarPopup.contains(e.target))hidePopup()});
+  document.addEventListener('click',function(e){if(!domStarPopup.classList.contains('show'))return;if(e.target===canvas)return;if(!domStarPopup.contains(e.target))hidePopup()});
 
   domListBtn.addEventListener('click',togglePanel);
   domClosePanel.addEventListener('click',closePanel);
