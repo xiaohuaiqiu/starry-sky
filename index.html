@@ -531,10 +531,37 @@ function handleCanvasClick(e){
 }
 
 // ─── Scorpio ─────────────────────────────────────
+// Large scorpion shape: claws → head → heart(Antares) → body → curling tail → stinger
 var scorpio=[
-  {x:.18,y:.22,r:2.6,a:.65},{x:.22,y:.26,r:2,a:.6},{x:.28,y:.30,r:3.2,a:.8},{x:.26,y:.38,r:2.3,a:.65},{x:.30,y:.48,r:2.6,a:.65},{x:.36,y:.44,r:1.8,a:.55}
+  // Claws (top, extending outward)
+  {x:.18,y:.13,r:2.6,type:'claw'},{x:.23,y:.18,r:2.2,type:'claw'},
+  {x:.48,y:.12,r:2.4,type:'claw'},{x:.43,y:.17,r:2.1,type:'claw'},
+  // Head
+  {x:.27,y:.23,r:2.8,type:'head'},{x:.33,y:.21,r:3.2,type:'head'},
+  {x:.39,y:.24,r:2.6,type:'head'},
+  // Body — Antares is the heart
+  {x:.34,y:.32,r:4.5,type:'antares'},
+  {x:.35,y:.40,r:2.5,type:'body'},
+  {x:.34,y:.48,r:2.3,type:'body'},
+  // Tail curling left and up
+  {x:.32,y:.55,r:2.4,type:'tail'},
+  {x:.28,y:.60,r:2.2,type:'tail'},
+  {x:.23,y:.62,r:2.0,type:'tail'},
+  {x:.18,y:.58,r:2.6,type:'stinger'},
+  {x:.15,y:.54,r:2.0,type:'stinger'}
 ];
-var scorpioLines=[[0,1],[1,2],[2,3],[3,4],[4,5]];
+var scorpioLines=[
+  // Claws → head
+  [0,1],[2,3],[1,4],[3,6],
+  // Head line
+  [4,5],[5,6],
+  // Head → Antares → body
+  [5,7],[7,8],[8,9],[9,10],
+  // Tail curl
+  [10,11],[11,12],[12,13],[13,14]
+];
+// Extra decorative lines (claw detail)
+var scorpioDeco=[[0,2],[14,10]];
 
 // ─── Nebula ──────────────────────────────────────
 function genNebula(){
@@ -567,10 +594,75 @@ function drawParticles(ctx,t){particles.forEach(function(p){p.x+=p.vx+Math.sin(t
 
 // ─── Constellation ───────────────────────────────
 function drawConstellation(ctx,t){
-  ctx.strokeStyle='rgba(220,170,210,.16)';ctx.lineWidth=.55;ctx.setLineDash([3,6]);
+  // Collect all star positions for bounding area
+  var cx=0,cy=0;scorpio.forEach(function(s){cx+=s.x;cy+=s.y});cx/=scorpio.length;cy/=scorpio.length;
+  // Large ambient glow behind the whole constellation
+  var ambG=ctx.createRadialGradient(cx*W,cy*H,0,cx*W,cy*H,isMobile?W*.26:W*.22);
+  ambG.addColorStop(0,'rgba(200,140,180,.07)');
+  ambG.addColorStop(.5,'rgba(180,120,160,.03)');
+  ambG.addColorStop(1,'transparent');
+  ctx.fillStyle=ambG;ctx.fillRect(0,0,W,H);
+
+  // Draw decorative faint lines first
+  ctx.strokeStyle='rgba(200,150,190,.06)';ctx.lineWidth=.3;ctx.setLineDash([1,8]);
+  scorpioDeco.forEach(function(p){var a=scorpio[p[0]],b=scorpio[p[1]];ctx.beginPath();ctx.moveTo(a.x*W,a.y*H);ctx.lineTo(b.x*W,b.y*H);ctx.stroke()});
+  ctx.setLineDash([]);
+
+  // Draw main connecting lines
+  var lineAlpha=.22+Math.sin(t*.0008)*.04;
+  ctx.strokeStyle='rgba(230,170,210,'+lineAlpha+')';ctx.lineWidth=isMobile?.8:1.1;ctx.setLineDash([4,5]);
   scorpioLines.forEach(function(p){var a=scorpio[p[0]],b=scorpio[p[1]];ctx.beginPath();ctx.moveTo(a.x*W,a.y*H);ctx.lineTo(b.x*W,b.y*H);ctx.stroke()});
   ctx.setLineDash([]);
-  scorpio.forEach(function(s){var pulse=1+.07*Math.sin(t*.0018+s.x*22+s.y*22);var g=ctx.createRadialGradient(s.x*W,s.y*H,0,s.x*W,s.y*H,s.r*9*pulse);g.addColorStop(0,s===scorpio[2]?'rgba(255,160,200,.5)':'rgba(220,170,210,.45)');g.addColorStop(.45,'rgba(200,150,200,.12)');g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r*9,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r*1.1,0,Math.PI*2);ctx.fillStyle=s===scorpio[2]?'#ffbbcc':'#e8c8f0';ctx.fill()})
+
+  // Draw stars
+  scorpio.forEach(function(s,i){
+    var pulse=1+.08*Math.sin(t*.0018+s.x*18+s.y*18);
+    var sx=s.x*W,sy=s.y*H;
+    var isBright=s.type==='antares'||s.type==='stinger';
+    var isAntares=s.type==='antares';
+
+    // Outer glow
+    var glowR=s.r*(isAntares?14:isBright?10:7)*pulse;
+    var g=ctx.createRadialGradient(sx,sy,0,sx,sy,glowR);
+    if(isAntares){
+      g.addColorStop(0,'rgba(255,140,180,.55)');
+      g.addColorStop(.25,'rgba(240,120,160,.3)');
+      g.addColorStop(.6,'rgba(200,100,150,.08)');
+      g.addColorStop(1,'transparent');
+    }else if(isBright){
+      g.addColorStop(0,'rgba(255,170,200,.45)');
+      g.addColorStop(.4,'rgba(220,150,190,.15)');
+      g.addColorStop(1,'transparent');
+    }else{
+      g.addColorStop(0,'rgba(220,170,210,.35)');
+      g.addColorStop(.5,'rgba(200,150,190,.1)');
+      g.addColorStop(1,'transparent');
+    }
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(sx,sy,glowR,0,Math.PI*2);ctx.fill();
+
+    // Star core — sparkle shape for bright stars, circle for normal
+    if(isAntares){
+      // Large sparkle
+      drawStarShape(ctx,sx,sy,s.r*2.8*pulse,s.r*1.0*pulse,4,t*.0012);
+      ctx.fillStyle='rgba(255,180,200,.85)';ctx.fill();
+      // Inner bright core
+      drawStarShape(ctx,sx,sy,s.r*1.4*pulse,s.r*.5*pulse,4,-t*.0008);
+      ctx.fillStyle='rgba(255,200,220,.95)';ctx.fill();
+    }else if(isBright){
+      drawStarShape(ctx,sx,sy,s.r*2.2*pulse,s.r*.8*pulse,4,t*.001);
+      ctx.fillStyle='rgba(255,180,210,.8)';ctx.fill();
+      drawStarShape(ctx,sx,sy,s.r*1.1*pulse,s.r*.4*pulse,4,-t*.0008);
+      ctx.fillStyle='rgba(255,200,225,.9)';ctx.fill();
+    }else{
+      // Normal star — small sparkle
+      drawStarShape(ctx,sx,sy,s.r*1.8*pulse,s.r*.6*pulse,4,t*.0008+s.x*8);
+      ctx.fillStyle='rgba(235,180,210,.7)';ctx.fill();
+    }
+
+    // Tiny bright core dot for all stars
+    ctx.beginPath();ctx.arc(sx,sy,s.r*.35*pulse,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,220,240,.9)';ctx.fill();
+  })
 }
 
 // ─── Message stars ───────────────────────────────
