@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>✨</text></svg>">
 <title>星空物语</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -640,7 +642,7 @@ function drawConstellation(ctx,t){
 function drawMessageStars(ctx,t){
   messageStars.forEach(function(ms){
     var sx=ms.x*W,sy=ms.y*H;
-    var age=t-ms.createdAt;
+    var age=Date.now()-ms.createdAt;
     var isNew=age<2500;
     var scale=isNew?.2+.8*(age/2500):1;
     var pulse=1+.12*Math.sin(t*.0035+ms.x*12+ms.y*12);
