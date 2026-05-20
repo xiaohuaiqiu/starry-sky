@@ -497,8 +497,9 @@ function toggleAddMode(){
 }
 
 // ─── Canvas click ────────────────────────────────
+var lastPopupShow=0;
 function findNearest(cx,cy,thresh){
-  var best=null,bd=thresh||0.05;
+  var best=null,bd=thresh||0.06;
   messageStars.forEach(function(s){var d=dist(cx,cy,s.x,s.y);if(d<bd){bd=d;best=s}});
   return best
 }
@@ -509,10 +510,10 @@ function handleCanvasClick(e){
   var cx=(e.clientX-rect.left)/rect.width;
   var cy=(e.clientY-rect.top)/rect.height;
 
-  if(addMode){e.stopPropagation();showInputAt(cx,cy);return}
+  if(addMode){showInputAt(cx,cy);return}
   // Browse mode: click near star to read
-  var existing=findNearest(cx,cy,isMobile?0.06:0.04);
-  if(existing){e.stopPropagation();showPopup(existing,e)}
+  var existing=findNearest(cx,cy,isMobile?0.08:0.06);
+  if(existing){lastPopupShow=Date.now();showPopup(existing,e)}
 }
 
 // ─── Scorpio constellation ───────────────────────
@@ -744,6 +745,12 @@ function init(){
   // Events
   canvas.addEventListener('click',handleCanvasClick);
   canvas.addEventListener('touchend',function(e){e.preventDefault();if(e.changedTouches.length===1)handleCanvasClick(e.changedTouches[0])});
+  canvas.addEventListener('mousemove',function(e){
+    if(addMode||showInput)return;
+    var rect=canvas.getBoundingClientRect();
+    var cx=(e.clientX-rect.left)/rect.width,cy=(e.clientY-rect.top)/rect.height;
+    canvas.style.cursor=findNearest(cx,cy,isMobile?0.08:0.06)?'pointer':'default';
+  });
 
   domFab.addEventListener('click',function(e){e.stopPropagation();toggleAddMode()});
   domSendBtn.addEventListener('click',handleSubmit);
@@ -752,7 +759,7 @@ function init(){
 
   domClosePopup.addEventListener('click',hidePopup);
   domStarPopup.addEventListener('click',function(e){e.stopPropagation()});
-  document.addEventListener('click',function(e){if(!domStarPopup.classList.contains('show'))return;if(e.target===canvas)return;if(!domStarPopup.contains(e.target))hidePopup()});
+  document.addEventListener('click',function(e){if(!domStarPopup.classList.contains('show'))return;if(Date.now()-lastPopupShow<300)return;if(!domStarPopup.contains(e.target))hidePopup()});
 
   domListBtn.addEventListener('click',togglePanel);
   domClosePanel.addEventListener('click',closePanel);
