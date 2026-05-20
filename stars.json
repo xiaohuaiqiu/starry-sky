@@ -26,5 +26,12 @@
     "message": "hello world",
     "createdAt": 1779297345740,
     "clientId": "mpebp6mk-oajeof"
+  },
+  {
+    "x": 0.48887434554973824,
+    "y": 0.6489071038251366,
+    "message": "这是一个测试",
+    "createdAt": 1779297416836,
+    "clientId": "mpebqphg-3h8jq6"
   }
 ]
