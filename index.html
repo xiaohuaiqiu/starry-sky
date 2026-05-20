@@ -214,7 +214,7 @@ var GITHUB_USER='xiaohuaiqiu',GITHUB_REPO='starry-sky',STARS_FILE='stars.json',P
 var MAX_IMG_SIZE=5*1024*1024; // 5MB
 var MAX_IMG_DIM=1200; // max pixel dimension after resize
 
-var token=null,messageStars=[],fileSha=null,addMode=false;
+var token=null,messageStars=[],fileSha=null,addMode=false,imageCache={};
 var bgStars=[],shootingStars=[],particles=[],nebula=[],bursts=[];
 var pendingX=0,pendingY=0,showInput=false,selectedImage=null,uploading=false;
 var time=0,canvas,ctx,W,H,dpr=Math.min(devicePixelRatio||1,2),isMobile=false;
@@ -298,6 +298,32 @@ async function uploadImage(file){
 
 function imageUrl(path){return 'https://raw.githubusercontent.com/'+GITHUB_USER+'/'+GITHUB_REPO+'/master/'+path}
 
+function preloadImages(){
+  messageStars.forEach(function(ms){
+    if(ms.image&&!imageCache[ms.image]){
+      var img=new Image();img.crossOrigin='anonymous';img.src=imageUrl(ms.image);
+      img.onload=function(){imageCache[ms.image]=img}
+    }
+  })
+}
+
+// Canvas helpers
+function rrect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()
+}
+
+function wrapText(ctx,text,maxW){
+  var chars=text.split(''),lines=[],line='';
+  chars.forEach(function(c){
+    var test=line+c;if(ctx.measureText(test).width>maxW&&line.length>0){lines.push(line);line=c}else{line=test}
+  });
+  if(line)lines.push(line);return lines
+}
+
 // ─── Data ────────────────────────────────────────
 function loadStars(){
   if(!token||loadingStars)return Promise.resolve();
@@ -312,7 +338,7 @@ function loadStars(){
       parsed.forEach(function(r){
         if(!(r.clientId in ids)){messageStars.push({x:r.x,y:r.y,message:r.message,image:r.image||null,createdAt:r.createdAt,clientId:r.clientId,fromRemote:true});changed=true}
       });
-      if(changed){messageStars.sort(function(a,b){return a.createdAt-b.createdAt});updatePanel()}
+      if(changed){messageStars.sort(function(a,b){return a.createdAt-b.createdAt});updatePanel();preloadImages()}
     }
     loadingStars=false
   }).catch(function(e){loadingStars=false;if(e.message==='unauth')return})
@@ -374,7 +400,7 @@ function handleConnect(){
   domBtnConnect.disabled=true;domBtnConnect.textContent='连接中...';domTokenErr.textContent='';token=v;
   fetch('https://api.github.com/user',{headers:{'Authorization':'token '+token}}).then(function(r){if(!r.ok)throw new Error('bad');return r.json()}).then(function(){
     localStorage.setItem('starry_gh_token',token);hideTokenSetup();domBadge.textContent='✦ 已连接';toast('已连接星空 ✨');
-    return loadStars()
+    return loadStars().then(function(){preloadImages()})
   }).then(function(){startPoll()}).catch(function(){domTokenErr.textContent='Token 无效';domBtnConnect.disabled=false;domBtnConnect.textContent='✦ 连接星空';token=null})
 }
 
@@ -388,6 +414,7 @@ async function addStar(x,y,msg,imgFile){
     }catch(e){toast('图片上传失败:'+e.message);console.warn('Image upload failed:',e)}
   }
   messageStars.push(star);
+  if(star.image)preloadImages();
   spawnBurst(x,y);updatePanel();
   saveStars().catch(function(){})
 }
@@ -531,50 +558,135 @@ function drawMessageStars(ctx,t){
     var sx=ms.x*W,sy=ms.y*H;
     var age=Date.now()-ms.createdAt,isNew=age<2800;
     var scale=isNew?.18+.82*Math.min(1,age/2800):1;
-    var pulse=1+.1*Math.sin(t*.0035+ms.x*12+ms.y*12);
+    var pulse=1+.08*Math.sin(t*.003+ms.x*12+ms.y*12);
     var hasImg=!!ms.image;
+    var img=hasImg?imageCache[ms.image]:null;
 
-    // Outer glow — slightly blue-tinted for image stars
-    var gr=24*scale*pulse;
-    var g=ctx.createRadialGradient(sx,sy,0,sx,sy,gr);
-    var gc=hasImg?'rgba(180,200,240,.55)':'rgba(250,200,100,.7)';
-    g.addColorStop(0,gc);
-    g.addColorStop(.22,hasImg?'rgba(170,190,230,.32)':'rgba(245,190,90,.4)');
-    g.addColorStop(.55,hasImg?'rgba(160,180,220,.08)':'rgba(240,180,80,.1)');
-    g.addColorStop(1,'transparent');
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(sx,sy,gr,0,Math.PI*2);ctx.fill();
+    if(hasImg){
+      // ── Image card (Polaroid style) ──
+      var cw=isMobile?72:90,pad=5,iw=cw-pad*2,ih=iw;
+      var text=ms.message||'';
+      var fontSize=isMobile?10:11;
+      ctx.font=fontSize+'px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif';
+      var lines=text?wrapText(ctx,text,cw-pad*2):[];
+      var th=lines.length>0?lines.length*(fontSize+3)+pad:0;
+      var ch=pad+ih+(th>0?pad+th:0)+pad;
+      var cx=sx-cw/2,cy=sy-ch*.6;
+      // Keep card in viewport
+      cx=Math.max(8,Math.min(W-cw-8,cx));
+      cy=Math.max(8,Math.min(H-ch-8,cy));
+      var midX=cx+cw/2,midY=cy+ch/2;
 
-    // Cross sparkle
-    var sl=14*scale*pulse;
-    ctx.strokeStyle=hasImg?'rgba(210,225,250,'+(.6*scale)+')':'rgba(255,225,150,'+(.7*scale)+')';
-    ctx.lineWidth=1.5;ctx.beginPath();
-    ctx.moveTo(sx,sy-sl);ctx.lineTo(sx,sy+sl);
-    ctx.moveTo(sx-sl,sy);ctx.lineTo(sx+sl,sy);ctx.stroke();
+      // Glow behind card
+      var glowR=Math.max(cw,ch)*.8*scale*pulse;
+      var glow=ctx.createRadialGradient(midX,midY,0,midX,midY,glowR);
+      glow.addColorStop(0,'rgba(180,200,240,'+(.45*scale)+')');
+      glow.addColorStop(.4,'rgba(170,190,230,'+(.18*scale)+')');
+      glow.addColorStop(1,'transparent');
+      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(midX,midY,glowR,0,Math.PI*2);ctx.fill();
 
-    // Diagonal
-    var dl=7*scale;
-    ctx.strokeStyle=hasImg?'rgba(200,215,245,'+(.3*scale)+')':'rgba(255,225,150,'+(.4*scale)+')';
-    ctx.lineWidth=.7;ctx.beginPath();
-    ctx.moveTo(sx-dl,sy-dl);ctx.lineTo(sx+dl,sy+dl);
-    ctx.moveTo(sx+dl,sy-dl);ctx.lineTo(sx-dl,sy+dl);ctx.stroke();
+      // Card shadow
+      ctx.shadowColor='rgba(0,0,0,'+(.35*scale)+')';ctx.shadowBlur=14*scale;
 
-    // Ring
-    ctx.beginPath();ctx.arc(sx,sy,6*scale*pulse,0,Math.PI*2);
-    ctx.strokeStyle=hasImg?'rgba(200,220,245,'+(.3*scale)+')':'rgba(255,230,160,'+(.35*scale)+')';
-    ctx.lineWidth=.8;ctx.stroke();
+      // Card bg
+      rrect(ctx,cx,cy,cw,ch,10);
+      var cardBg=ctx.createLinearGradient(cx,cy,cx,cy+ch);
+      cardBg.addColorStop(0,'rgba(28,26,52,.94)');cardBg.addColorStop(1,'rgba(22,20,44,.96)');
+      ctx.fillStyle=cardBg;ctx.fill();
+      ctx.shadowColor='transparent';ctx.shadowBlur=0;
 
-    // Core
-    ctx.beginPath();ctx.arc(sx,sy,4*scale*pulse,0,Math.PI*2);
-    ctx.fillStyle=hasImg?'rgba(210,225,250,'+(.9*scale)+')':'rgba(255,220,120,'+(.92*scale)+')';
-    ctx.fill();
-    ctx.beginPath();ctx.arc(sx,sy,1.5*scale*pulse,0,Math.PI*2);
-    ctx.fillStyle='#fff';ctx.fill();
+      // Card border
+      ctx.strokeStyle='rgba(200,210,240,'+(.18*scale)+')';ctx.lineWidth=1;ctx.stroke();
 
-    // Ring indicator for image stars
-    if(hasImg&&!isNew){
-      ctx.beginPath();ctx.arc(sx,sy,12*scale*pulse,0,Math.PI*2);
-      ctx.strokeStyle='rgba(180,200,240,'+(.18+.08*Math.sin(t*.004+ms.x*8))+')';
-      ctx.lineWidth=1;ctx.setLineDash([3,4]);ctx.stroke();ctx.setLineDash([])
+      // Image
+      if(img&&img.complete&&img.naturalWidth>0){
+        ctx.save();rrect(ctx,cx+pad,cy+pad,iw,ih,5);ctx.clip();
+        ctx.drawImage(img,cx+pad,cy+pad,iw,ih);ctx.restore();
+        // Subtle inner border
+        rrect(ctx,cx+pad,cy+pad,iw,ih,5);
+        ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=.5;ctx.stroke();
+      }else{
+        // Placeholder while loading
+        ctx.fillStyle='rgba(255,255,255,.04)';rrect(ctx,cx+pad,cy+pad,iw,ih,5);ctx.fill();
+        ctx.fillStyle='rgba(255,255,255,.15)';ctx.font='20px sans-serif';
+        ctx.textAlign='center';ctx.fillText('⟳',midX,cy+pad+ih/2+7);
+      }
+
+      // Text below image
+      if(lines.length>0){
+        var ty=cy+pad+ih+pad;
+        ctx.fillStyle='rgba(230,225,245,.9)';
+        ctx.textAlign='center';
+        lines.forEach(function(ln,i){
+          ctx.fillText(ln,midX,ty+(i+1)*fontSize+i*3);
+        });
+      }
+
+      // Small sparkle on top-left of card
+      var spX=cx+2,spY=cy;
+      ctx.fillStyle='rgba(255,240,200,'+(.7*scale*pulse)+')';
+      ctx.beginPath();ctx.arc(spX,spY,2.5*scale,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff';
+      ctx.beginPath();ctx.arc(spX,spY,1.2*scale,0,Math.PI*2);ctx.fill();
+
+    }else{
+      // ── Text-only card (golden note) ──
+      var text=ms.message||'✦';
+      var fontSize=isMobile?11:13;
+      ctx.font='600 '+fontSize+'px -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif';
+      var pad=7;
+      var maxTW=isMobile?100:130;
+      var cw=Math.min(maxTW,Math.max(44,ctx.measureText(text).width+pad*2+10));
+      var lines=wrapText(ctx,text,cw-pad*2);
+      var lh=fontSize+4;
+      var textH=lines.length*lh;
+      var ch=pad+textH+pad;
+      var cx=sx-cw/2,cy=sy-ch*.55;
+      cx=Math.max(8,Math.min(W-cw-8,cx));
+      cy=Math.max(8,Math.min(H-ch-8,cy));
+      var midX=cx+cw/2,midY=cy+ch/2;
+
+      // Warm glow
+      var glowR=Math.max(cw,ch)*.75*scale*pulse;
+      var glow=ctx.createRadialGradient(midX,midY,0,midX,midY,glowR);
+      glow.addColorStop(0,'rgba(255,200,110,'+(.5*scale)+')');
+      glow.addColorStop(.35,'rgba(245,180,85,'+(.2*scale)+')');
+      glow.addColorStop(1,'transparent');
+      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(midX,midY,glowR,0,Math.PI*2);ctx.fill();
+
+      // Card shadow
+      ctx.shadowColor='rgba(0,0,0,'+(.3*scale)+')';ctx.shadowBlur=12*scale;
+
+      // Card bg
+      rrect(ctx,cx,cy,cw,ch,8);
+      var cardBg=ctx.createLinearGradient(cx,cy,cx,cy+ch);
+      cardBg.addColorStop(0,'rgba(42,32,22,.93)');cardBg.addColorStop(1,'rgba(32,24,16,.95)');
+      ctx.fillStyle=cardBg;ctx.fill();
+      ctx.shadowColor='transparent';ctx.shadowBlur=0;
+
+      // Card border
+      ctx.strokeStyle='rgba(255,200,120,'+(.22*scale)+')';ctx.lineWidth=1;ctx.stroke();
+
+      // Text
+      ctx.fillStyle='rgba(255,235,200,.92)';ctx.textAlign='center';
+      lines.forEach(function(ln,i){
+        ctx.fillText(ln,midX,cy+pad+(i+1)*fontSize+i*3);
+      });
+
+      // Sparkle dot top-left
+      var spX=cx+3,spY=cy+1;
+      ctx.fillStyle='rgba(255,220,140,'+(.8*scale*pulse)+')';
+      ctx.beginPath();ctx.arc(spX,spY,2*scale,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff';
+      ctx.beginPath();ctx.arc(spX,spY,.8*scale,0,Math.PI*2);ctx.fill();
+    }
+
+    // Entrance burst ring for new stars
+    if(isNew&&scale<.9){
+      var ringR=Math.max(30,50)*(1-scale);
+      ctx.beginPath();ctx.arc(sx,sy,ringR,0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,220,130,'+(.35*(1-scale))+')';
+      ctx.lineWidth=1.5;ctx.stroke();
     }
   })
 }
@@ -611,7 +723,7 @@ function init(){
   addEventListener('resize',function(){W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);genNebula();genBgStars();genParticles()});
 
   token=localStorage.getItem('starry_gh_token');
-  if(token){domBadge.textContent='✦ 已连接';hideTokenSetup();loadStars().then(function(){startPoll()})}else showTokenSetup();
+  if(token){domBadge.textContent='✦ 已连接';hideTokenSetup();loadStars().then(function(){preloadImages();startPoll()})}else showTokenSetup();
   updatePanel();
 
   // Events
