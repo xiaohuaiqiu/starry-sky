@@ -3,6 +3,7 @@
     "x": 0.3193717277486911,
     "y": 0.3620218579234973,
     "message": "你会写下什么呢？关于面对告别的歌",
+    "image": null,
     "createdAt": 1779296380355,
     "clientId": "mpeb4hqb-b17ejy"
   },
@@ -10,6 +11,7 @@
     "x": 0.3193717277486911,
     "y": 0.3620218579234973,
     "message": "你会写下什么呢？关于面对告别的歌",
+    "image": null,
     "createdAt": 1779296380355,
     "clientId": "mpeb4hqb-b17ejy"
   },
@@ -17,6 +19,7 @@
     "x": 0.22905759162303665,
     "y": 0.22540983606557377,
     "message": "芜湖",
+    "image": null,
     "createdAt": 1779296427163,
     "clientId": "mpeb5huj-8dqge3"
   },
@@ -24,6 +27,7 @@
     "x": 0.45549738219895286,
     "y": 0.48360655737704916,
     "message": "hello world",
+    "image": null,
     "createdAt": 1779297345740,
     "clientId": "mpebp6mk-oajeof"
   },
@@ -31,6 +35,7 @@
     "x": 0.48887434554973824,
     "y": 0.6489071038251366,
     "message": "这是一个测试",
+    "image": null,
     "createdAt": 1779297416836,
     "clientId": "mpebqphg-3h8jq6"
   },
@@ -38,6 +43,7 @@
     "x": 0.5968322534197265,
     "y": 0.26766917293233083,
     "message": "风出来滴沙",
+    "image": null,
     "createdAt": 1779297679556,
     "clientId": "mpebwc78-dvb099"
   },
@@ -45,6 +51,7 @@
     "x": 0.5053995680345572,
     "y": 0.3323308270676692,
     "message": "我爱洗澡皮肤好好",
+    "image": null,
     "createdAt": 1779297862676,
     "clientId": "mpec09hw-o2ex22"
   },
@@ -52,7 +59,16 @@
     "x": 0.6292296616270698,
     "y": 0.5533834586466165,
     "message": "不死之身",
+    "image": null,
     "createdAt": 1779298058724,
     "clientId": "mpec4gro-8ecb8p"
+  },
+  {
+    "x": 0.775377969762419,
+    "y": 0.4330827067669173,
+    "message": "jj来了",
+    "image": null,
+    "createdAt": 1779299200869,
+    "clientId": "mpecsy1x-91fpsg"
   }
 ]
